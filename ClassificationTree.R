@@ -266,3 +266,5 @@ tree.classify(n, treeclass)
 
 
 #part2
+
+print("hi ahmed")
