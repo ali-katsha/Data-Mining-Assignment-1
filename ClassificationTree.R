@@ -265,8 +265,7 @@ tree.classify(n, treeclass)
 
 
 
-print("HIIiii")
 
 #part2
 
-print("hi ahmed")
+
