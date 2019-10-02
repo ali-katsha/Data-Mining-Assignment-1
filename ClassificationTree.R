@@ -230,31 +230,138 @@ tree.grow.bag <- function(x, y, nmin, minleaf, nfeat, m, ...) {
 #OUTPUT   predictions 
 
 tree.classify.bag <- function(trees, x) {
-  
-  predictions   <- c()
-  numberOftrees <- length(trees)
+  predictions <- c()
+  num_trees <- length(trees)
   
   for (r in 1:nrow(x)) {
-    interimExamples    <- x[r, , drop = FALSE]
-    interimPredictions <- c()
-    for (t in 1:numberOftrees) {
-      interimTree        <- trees[[t]]
-      n                  <- tree.classify(interimExamples, interimTree)
-      interimPredictions <- c(interimPredictions, n)
+    row <- x[r, , drop = FALSE]
+    tmp_predictions <- c()
+    for (t in 1:num_trees) {
+      current_tree <- trees[[t]]
+      p <- tree.classify(row, current_tree)
+      tmp_predictions <- c(tmp_predictions, p)
     }
     
-    n <- length(which(interimPredictions == 0))
-    if (n >= (numberOftrees / 2)) {
+    n <- length(which(tmp_predictions == 0))
+    if (n >= (num_trees / 2)) {
       predictions <- c(predictions, 0)
     } else {
       predictions <- c(predictions, 1)
     }
   }
-  
   return(predictions)
 }
 
 
+test_tree <- function(tree){
+  
+  
+  eclipse_testing_data <- read.csv("eclipse-metrics-packages-3.0.csv", header = TRUE, sep = ";")
+  
+  eclipse_testing_data[,4] <- as.numeric(eclipse_testing_data[,4] > 0)
+  eclipse_testing_data[,4] 
+  
+  eeclipse_testingN <- eclipse_testing_data[, c(3, 5:44)]
+  eclipse_testingM <- eclipse_testing_data[, 4]
+  
+  classification_result <-tree.classify(eeclipse_testingN, tree)
+  
+  
+  
+  TP <- 0
+  TN <- 0
+  FP <- 0
+  FN <- 0
+  u_p =classification_result
+  eclipse_testingM
+  
+  
+  for ( i in 1:length(classification_result) ) {
+    if ( (classification_result[i] == 1) && (eclipse_testingM[i] == 1) )
+      TP <- TP + 1
+      
+    if ( (classification_result[i] == 0) && (eclipse_testingM[i] == 0) ) 
+        TN <- TN + 1
+    
+    if ( (classification_result[i] == 0) && (eclipse_testingM[i] == 1) ) 
+      FN <- FN + 1
+    
+    if ( (classification_result[i] == 1) && (eclipse_testingM[i] == 0) ) 
+      FP <- FP + 1
+  }
+  
+  
+  
+  precision <-(TP/(TP + FP))
+    
+  accuracy<- (TP + TN)/(TP + TN + FP + FN)
+  
+  recall <- (TP/(TP + FN))
+  
+  print("Precision : ")  
+print( precision)
+  print("Accuracy : ")
+  print(  accuracy)
+  print("Recall : ")
+  print(recall)
+  
+}
+
+
+test_forest <- function(forest){
+  
+  
+  eclipse_testing_data <- read.csv("eclipse-metrics-packages-3.0.csv", header = TRUE, sep = ";")
+  
+  eclipse_testing_data[,4] <- as.numeric(eclipse_testing_data[,4] > 0)
+  eclipse_testing_data[,4] 
+  eclipse_testingN <- eclipse_testing_data[, c(3, 5:44)]
+  eclipse_testingM <- eclipse_testing_data[, 4]
+  
+ # print(tree)
+  
+  classification_result <-  tree.classify.bag( forest,eclipse_testingN)
+  
+ # print(eclipse_testingM)
+
+  TP <- 0
+  TN <- 0
+  FP <- 0
+  FN <- 0
+  #u_p =classification_result
+  #eclipse_testingM
+  
+  
+  for ( i in 1:length(classification_result) ) {
+    if ( (classification_result[i] == 1) && (eclipse_testingM[i] == 1) )
+      TP <- TP + 1
+    
+    if ( (classification_result[i] == 0) && (eclipse_testingM[i] == 0) ) 
+      TN <- TN + 1
+    
+    if ( (classification_result[i] == 0) && (eclipse_testingM[i] == 1) ) 
+      FN <- FN + 1
+    
+    if ( (classification_result[i] == 1) && (eclipse_testingM[i] == 0) ) 
+      FP <- FP + 1
+  }
+  
+  
+  
+  precision <-(TP/(TP + FP))
+  
+  accuracy<- (TP + TN)/(TP + TN + FP + FN)
+  
+  recall <- (TP/(TP + FN))
+  
+  print("Precision : ")  
+  print( precision)
+  print("Accuracy : ")
+  print(  accuracy)
+  print("Recall : ")
+  print(recall)
+  
+}
 
 #part1 
 datam2 <- read.csv("credit data.csv", header = TRUE, sep = ";")
@@ -267,5 +374,31 @@ tree.classify(n, treeclass)
 
 
 #part2
+
+eclipse_training_data <- read.csv("eclipse-metrics-packages-2.0.csv", header = TRUE, sep = ";")
+eclipse_training_data[,4] <- as.numeric(eclipse_training_data[,4] > 0)
+eclipse_training_data[,4] 
+eclipse_trainingN <- eclipse_training_data[, c(3, 5:44)]
+eclipse_trainingM <- eclipse_training_data[, 4]
+
+
+
+
+#single_Tree
+print("Single tree")
+single_tree_eclipse <- tree.grow(eclipse_trainingN, eclipse_trainingM,15,5,41)
+test_tree(single_tree_eclipse)
+
+#bagging
+print("Bagging")
+bagging_tree_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,41,100)
+test_forest(bagging_tree_eclipse)
+
+
+#Random Forest
+print("Random Forest")
+forest_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,6,100)
+test_forest(forest_eclipse)
+
 
 
