@@ -305,6 +305,7 @@ print( precision)
   print("Recall : ")
   print(recall)
   return(c(TP+TN, FP+FN))  
+
 }
 
 
@@ -383,6 +384,7 @@ mcnemar <- function(classifier1,classifier2 ){
 }
 
 
+
 #part1 
 datam2 <- read.csv("credit data.csv", header = TRUE, sep = ";")
 n<- datam2[,-6]
@@ -407,6 +409,8 @@ eclipse_trainingM <- eclipse_training_data[, 4]
 #single_Tree
 print("Single tree")
 single_tree_eclipse <- tree.grow(eclipse_trainingN, eclipse_trainingM,15,5,41)
+
+
 classification_numbers_tree = test_tree(single_tree_eclipse)
 
 #bagging
@@ -418,6 +422,7 @@ classification_numbers_bagging = test_forest(bagging_tree_eclipse)
 #Random Forest
 print("Random Forest")
 forest_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,6,100)
+
 classification_numbers_forest = test_forest(forest_eclipse)
 
 
