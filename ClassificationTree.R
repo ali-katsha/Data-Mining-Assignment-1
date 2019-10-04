@@ -298,6 +298,15 @@ test_tree <- function(tree){
   
   recall <- (TP/(TP + FN))
   
+  
+  print("True Positive")
+  print(TP)
+  print("False Positive")
+  print(FP)
+  print("True Negative")
+  print(TN)
+  print("False Negative")
+  print(FN)
   print("Precision : ")  
 print( precision)
   print("Accuracy : ")
@@ -355,6 +364,14 @@ test_forest <- function(forest){
   
   recall <- (TP/(TP + FN))
   
+  print("True Positive")
+  print(TP)
+  print("False Positive")
+  print(FP)
+  print("True Negative")
+  print(TN)
+  print("False Negative")
+  print(FN)
   print("Precision : ")  
   print( precision)
   print("Accuracy : ")
