@@ -2,7 +2,7 @@
 #INPUT predictor values, class Values, minleaf 
 #FUNCTION calculate the gini-index for each predicor based on the class values 
 #OUTPUT bestNodeToSplit as a list() has NodeImpurity and NodeCondition
-
+#this function will be called for each pair of predictor and
 bestSplitNode <- function(predictorValue, classValues, minleaf) {
   
   sortedPredictorValue <- sort(unique(predictorValue))
@@ -51,9 +51,9 @@ bestSplitNode <- function(predictorValue, classValues, minleaf) {
 #INPUT interimDataMatrix, interimClassColumnNumber, nmin,and minleaf
 #FUNCTION finding the best node by finding the impurity of each nodes that have been used by calculate gini index of each of them in function bestSplitNode 
 #OUTPUT dataTree as a list() which keeps predictorLabel and its condition.
-
+# takes the first arg a copy of the data+class and the number of predictors plus class-label col = 6
 splitNode <- function(interimDataMatrix, interimClassColumnNumber, nmin, minleaf) {
-  
+  # contains the class values
   calssValues      <- interimDataMatrix[, interimClassColumnNumber] 
   lengthGroup      <- length(calssValues)
   lengthGroupZeros <- length(which(calssValues == 0))
@@ -64,18 +64,18 @@ splitNode <- function(interimDataMatrix, interimClassColumnNumber, nmin, minleaf
   {
     return(NULL)
   }
-  
+  # get the name of the predictors and put it in a victor
   predictorsNames    <- names(interimDataMatrix[,-interimClassColumnNumber])
   classColumnValue   <- interimDataMatrix[, interimClassColumnNumber]
-  nodeToSplit        <- NULL
-  predictorLabel     <- NULL
-  predictorCondition <- NULL
+  nodeToSplit        <- NULL # to be used later
+  predictorLabel     <- NULL # to be used later
+  predictorCondition <- NULL# to be used later
   
   for (index in 1:length(predictorsNames)) {
     
     predictorName        <- predictorsNames[index]
     predictorValues      <- interimDataMatrix[, predictorName]
-    interimBestSplit     <- bestSplitNode(predictorValues, classColumnValue, minleaf)
+    interimBestSplit     <- bestSplitNode(predictorValues, classColumnValue, minleaf) # we are passing P vector, class label, and minleaf
     
     if (is.null(interimBestSplit)) {
       next
@@ -111,9 +111,9 @@ treeGrowBuild <- function(dataMatrix, classColumnNumber, nmin, minleaf, nfeat) {
   
   numberOfColumns <- ncol(dataMatrix)
   
-  if (numberOfColumns <= nfeat + 1) {
+  if (numberOfColumns <= nfeat + 1) { #double check 
     
-    temproryDataMatrix        <- dataMatrix
+    temproryDataMatrix        <- dataMatrix        
     temproryClassColumnNumber <- classColumnNumber
     
   } else {
