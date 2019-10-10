@@ -27,8 +27,6 @@ tree.classify <- function(x, tr) {
   for (example in 1:nrow(x)) {
     ##call treeClassifyBuild on a (row with predictorLabel,and tree)
     p                <- treeClassifyBuild(x[example, , drop = FALSE], tr)
-    print("P=")
-    print(p)
     predictionValues <- c(predictionValues, p)
     
   }
@@ -286,6 +284,10 @@ treeClassifyBuild <- function(sample, tr) {
 
 
 
+#Function : test_tree()
+#Input:  (tree: single classification tree)
+#Output: Precision, Accuracy, Recall, Confusion Matrix, correct-classified instances, and wrong-classified instances
+#The function tests the tree against eclipse-3.0 dataset, it calculates Precision, Accuracy, Recall, ans Confusion Matrix and print them 
 test_tree <- function(tree){
   
   
@@ -351,6 +353,10 @@ test_tree <- function(tree){
 }
 
 
+#Function : test_forest()
+#Input:  (forest: set of trees produced by bagging or random forests)
+#Output: Precision, Accuracy, Recall, Confusion Matrix, number of correct-classified instances, and number of wrong-classified instances
+#The function tests the trees against eclipse-3.0 dataset, it calculates Precision, Accuracy, Recall, ans Confusion Matrix and print them 
 test_forest <- function(forest){
   
   
@@ -361,19 +367,13 @@ test_forest <- function(forest){
   eclipse_testingN <- eclipse_testing_data[, c(3, 5:44)]
   eclipse_testingM <- eclipse_testing_data[, 4]
   
- # print(tree)
   
   classification_result <-  tree.classify.bag( forest,eclipse_testingN)
-  
- # print(eclipse_testingM)
 
   TP <- 0
   TN <- 0
   FP <- 0
   FN <- 0
-  #u_p =classification_result
-  #eclipse_testingM
-  
   
   for ( i in 1:length(classification_result) ) {
     if ( (classification_result[i] == 1) && (eclipse_testingM[i] == 1) )
@@ -415,6 +415,10 @@ test_forest <- function(forest){
 }
 
 
+#Function : mcnemar()
+#Input:  (classifier1: vector of two elements, the first one is the number of correct-classified instances and the second element the wrong-classified instances by classifier1;; classifier2:the same vector for the second classifier)
+#Output: McNemar score
+#The function calculates McNemar score using the classification results of two classifiers
 mcnemar <- function(classifier1,classifier2 ){
   
   classifier1_correct = classifier1[1]
@@ -435,20 +439,18 @@ mcnemar <- function(classifier1,classifier2 ){
 
 
 
-#part1 
-datam2 <- read.csv("credit data.csv", header = TRUE, sep = ";")
-n<- datam2[,-6]
-m<- datam2[,6]
-##################################Right side is bigger >, left smaller  
-treeclass<- tree.grow(n,m,2,1,5)
-
-tree.classify(n, treeclass)
-
+#Main Function
+#Part1 
+  datam2 <- read.csv("credit data.csv", header = TRUE, sep = ";")
+  n<- datam2[,-6]
+  m<- datam2[,6]
+  treeclass<- tree.grow(n,m,2,1,5)
+  tree.classify(n, treeclass)
 
 
 
-#part2
 
+#Part2
  eclipse_training_data <- read.csv("eclipse-metrics-packages-2.0.csv", header = TRUE, sep = ";")
  eclipse_training_data[,4] <- as.numeric(eclipse_training_data[,4] > 0)
  eclipse_training_data[,4]
@@ -456,36 +458,27 @@ tree.classify(n, treeclass)
  eclipse_trainingM <- eclipse_training_data[, 4]
 
 
+  #Single Tree
+  print("Single tree")
+  single_tree_eclipse <- tree.grow(eclipse_trainingN, eclipse_trainingM,15,5,41)
+  classification_numbers_tree = test_tree(single_tree_eclipse)
+  
+  #Bagging
+  print("Bagging")
+  bagging_tree_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,41,100)
+  classification_numbers_bagging = test_forest(bagging_tree_eclipse)
+
+  
+  #Random Forest
+  print("Random Forests")
+  forest_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,6,100)
+  classification_numbers_forest = test_forest(forest_eclipse)
 
 
-#single_Tree
-print("Single tree")
-single_tree_eclipse <- tree.grow(eclipse_trainingN, eclipse_trainingM,15,5,41)
-
-
-classification_numbers_tree = test_tree(single_tree_eclipse)
-
-#bagging
-print("Bagging")
-bagging_tree_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,41,100)
-classification_numbers_bagging = test_forest(bagging_tree_eclipse)
-
-
-#Random Forest
-print("Random Forest")
-forest_eclipse <- tree.grow.bag(eclipse_trainingN, eclipse_trainingM,15,5,6,100)
-
-classification_numbers_forest = test_forest(forest_eclipse)
-
-
-mcnemar(classification_numbers_tree,classification_numbers_bagging)
-
-
-
-mcnemar(classification_numbers_bagging,classification_numbers_forest)
-
-
-mcnemar(classification_numbers_forest,classification_numbers_tree)
+  #McNemar Test
+  mcnemar(classification_numbers_tree,classification_numbers_bagging)
+  mcnemar(classification_numbers_bagging,classification_numbers_forest)
+  mcnemar(classification_numbers_forest,classification_numbers_tree)
 
 
 
