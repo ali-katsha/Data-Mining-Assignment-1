@@ -1,57 +1,155 @@
-#bestSplitNode FUNCTION 
-#INPUT predictor values, class Values, minleaf 
-#FUNCTION calculate the gini-index for each predicor based on the class values 
-#OUTPUT bestNodeToSplit as a list() has NodeImpurity and NodeCondition
-#this function will be called for each pair of predictor and
-bestSplitNode <- function(predictorValue, classValues, minleaf) {
-  
-  sortedPredictorValue <- sort(unique(predictorValue))
-  NodeImpurity <- NULL
-  NodeCondition <- NULL
-  for (index in 1:(length(sortedPredictorValue))) {
-    
-    conditionOfNode     <- (sortedPredictorValue[index] + sortedPredictorValue[index + 1]) / 2
-    subGroupZeros       <- classValues[which(predictorValue <= conditionOfNode)]
-    subGroupOnes        <- classValues[which(predictorValue > conditionOfNode)]
-    LengthSubGroupZeros <- length(subGroupZeros)
-    LengthSubGroupOnes  <- length(subGroupOnes)
-    
-    if ((LengthSubGroupZeros < minleaf) || (LengthSubGroupOnes < minleaf)) {
-      next
-    }
-    
-    # gini index for each child node(impurity) 
-    subGroupNode1ZerosProbability <- length(which(subGroupZeros == 0))/LengthSubGroupZeros
-    subGroupNode1OnesProbability  <- length(which(subGroupZeros == 1))/LengthSubGroupZeros
-    subGroupNode2ZerosProbability <- length(which(subGroupOnes == 0))/LengthSubGroupOnes
-    subGroupNode2OnesProbability  <- length(which(subGroupOnes == 1))/LengthSubGroupOnes
-    
-    giniSubNode1 <-  1-(subGroupNode1ZerosProbability)^2-(subGroupNode1OnesProbability)^2
-    giniSubNode2 <-  1-(subGroupNode2ZerosProbability)^2-(subGroupNode2OnesProbability)^2
-    WeightedGiniNode <- (LengthSubGroupZeros * giniSubNode1 + LengthSubGroupOnes * giniSubNode2)/(LengthSubGroupZeros+LengthSubGroupOnes)
-    
-    if (is.null(NodeImpurity) || (WeightedGiniNode < NodeImpurity)) {
-      NodeImpurity <- WeightedGiniNode
-      NodeCondition <- conditionOfNode
-    }
-    
-  }
-  
-  if (is.null(NodeImpurity)) {
-    return(NULL)
-  }
-  
-  bestNodeToSplit <- list()
-  bestNodeToSplit[["NodeImpurity"]] <- NodeImpurity
-  bestNodeToSplit[["NodeCondition"]] <- NodeCondition
-  return(bestNodeToSplit)
-}
+#Utrecht University, Data Mining. 
+#Assignment 1.
+#Implemented by:
+#Ahmad Alassaf (6557864)
+#Ali Katsheh (6661548)
+#Mahmud Jabri (6356672)
 
-#splitNode FUNCTION
-#INPUT interimDataMatrix, interimClassColumnNumber, nmin,and minleaf
-#FUNCTION finding the best node by finding the impurity of each nodes that have been used by calculate gini index of each of them in function bestSplitNode 
-#OUTPUT dataTree as a list() which keeps predictorLabel and its condition.
-# takes the first arg a copy of the data+class and the number of predictors plus class-label col = 6
+
+#Function 1: tree.grow()
+#Input :     (x::Data matrix of attribute values, y::class values vector, nmin::Int, minleaf::Int,nfeat::Int)  
+#Output:     tree 
+#This function binds the values of predictors with its class value and calling treeGrowBuild() to build the classification tree
+tree.grow <- function (x,y, nmin, minleaf, nfeat){
+  dataMatrix <- cbind(x, y)
+  return(treeGrowBuild(dataMatrix, ncol(dataMatrix), nmin, minleaf, nfeat))
+}#End tree.grow()
+
+
+#Function 2: tree.classify()
+#Input :  (x::atrributes matrix, tr::tree object)
+#Output:  predictionValues 
+#This function takes testing examples and calling treeClassifyBuild which returns the predicted class values for each example 
+tree.classify <- function(x, tr) {
+  
+  predictionValues <- c()
+  
+  for (example in 1:nrow(x)) {
+    ##call treeClassifyBuild on a (row with predictorLabel,and tree)
+    p                <- treeClassifyBuild(x[example, , drop = FALSE], tr)
+    print("P=")
+    print(p)
+    predictionValues <- c(predictionValues, p)
+    
+  }
+  
+  return(predictionValues)
+}#End tree.classify()
+
+
+#Function 3: tree.grow.bag()
+#Input  :    (x::Data matrix of attribute values, y::class value vector, nmin::Int, minleaf::Int, nfeat::Int, m)
+#Output :    returns a list of trees
+#FUNCTION taking training examples and extract some samples randomly, then calling tree.grow function to build a tree from each sample
+tree.grow.bag <- function(x, y, nmin, minleaf, nfeat, m, ...) {
+  
+  trees <- list()
+  
+  for (i in 1:m) {
+    randomData            <- sample(nrow(x), nrow(x), replace = TRUE)
+    interimRandomExamples <- x[randomData, , drop = FALSE]
+    interimClasses        <- y[randomData]
+    trees[[i]]            <- tree.grow(interimRandomExamples, interimClasses, nmin, minleaf, nfeat)
+  }
+  
+  return(trees)
+}#End tree.grow.bag()
+
+
+
+#Function 4: tree.classify.bag()
+#Input  :    (trees::List of trees, x::Data matrix of attributes values)
+#Output :    predicted class values 
+#Function applying each row in the training example to each calssification tree in the trees list 
+tree.classify.bag <- function(trees, x) {
+  predictions <- c()
+  num_trees <- length(trees)
+  
+  for (r in 1:nrow(x)) {
+    row <- x[r, , drop = FALSE]
+    tmp_predictions <- c()
+    for (t in 1:num_trees) {
+      current_tree <- trees[[t]]
+      p <- tree.classify(row, current_tree)
+      tmp_predictions <- c(tmp_predictions, p)
+    }
+    
+    n <- length(which(tmp_predictions == 0))
+    if (n >= (num_trees / 2)) {
+      predictions <- c(predictions, 0)
+    } else {
+      predictions <- c(predictions, 1)
+    }
+  }
+  return(predictions)
+}#End tree.classify.bag()
+
+
+
+
+######################################################################################  Auxiliary Functions  ##############################################
+
+#Function :treeGrowBuild() 
+#Input (dataMatrix::Data matrix, classColumnNumber::Int, nmin::Int, minleaf::Int,nfeat::Int)
+#FUNCTION after selecting the best predictor in function splitNode we splitting the data matrix based on two classes (left and right) of that predictor and we apply the same procedures recursively to the right subtree and left subtree untill the nodes becomes pure (leaves)
+#Output   tree as list() which stores predictor labelRoot left subTree and right subTree
+
+treeGrowBuild <- function(dataMatrix, classColumnNumber, nmin, minleaf, nfeat) 
+{
+  
+  numberOfColumns <- ncol(dataMatrix)
+  
+  
+  if (numberOfColumns <= nfeat + 1) {  
+    
+    temproryDataMatrix        <- dataMatrix        
+    temproryClassColumnNumber <- classColumnNumber
+    
+  } else {
+    
+    rnd_columns                <- sample(c(1:numberOfColumns)[-classColumnNumber], size = nfeat, replace = FALSE)
+    temproryDataMatrix         <- dataMatrix[, c(rnd_columns, classColumnNumber), drop = FALSE] 
+    temproryClassColumnNumber  <- nfeat + 1
+    
+  }
+  
+  bestSplit <- splitNode(temproryDataMatrix, temproryClassColumnNumber, nmin, minleaf)
+  
+  #?
+  if (is.null(bestSplit)) {
+    n_0 <- length(which(dataMatrix[, classColumnNumber] == 0))
+    n_1 <- length(which(dataMatrix[, classColumnNumber] == 1))
+    if (n_0 >= n_1) {
+      return(0)
+    }
+    return(1)
+  }
+  
+  bestNodeSelected          <- bestSplit[["predictorLabel"]]
+  bestNodeSelectedCondition <- bestSplit[["predictorCondition"]]
+  rowsFilter                <- which(dataMatrix[, bestNodeSelected] <= bestNodeSelectedCondition)
+  
+  leftDataMatrix            <- dataMatrix[rowsFilter, , drop = FALSE]
+  leftTree                  <- treeGrowBuild(leftDataMatrix, classColumnNumber, nmin, minleaf, nfeat)
+  rightDataMatrix           <- dataMatrix[-rowsFilter, , drop = FALSE]
+  rightTree                 <- treeGrowBuild(rightDataMatrix, classColumnNumber, nmin, minleaf, nfeat)
+  
+  tree                      <- list()
+  tree[["labelRoot"]]       <- bestSplit
+  tree[["leftSubTree"]]     <- leftTree
+  tree[["rightSubTree"]]    <- rightTree
+  
+  return(tree)
+} # End function treeGrowBuild()
+
+
+
+
+
+#Function : splitNode()
+#Input: (interimDataMatrix::data Matrix,interimClassColumnNumber:Int,nmin::Int,minleaf::Int)
+#Output: dataTree as a list() which keeps predictorLabel and its condition.
+#By calling bestSplitNode() for every predictor vector and keeping the lawest impurity returned. This function will return the best node (represented as list of label name and condition value) to split the training data at.
 splitNode <- function(interimDataMatrix, interimClassColumnNumber, nmin, minleaf) {
   # contains the class values
   calssValues      <- interimDataMatrix[, interimClassColumnNumber] 
@@ -100,157 +198,92 @@ splitNode <- function(interimDataMatrix, interimClassColumnNumber, nmin, minleaf
   dataTree[["predictorCondition"]] <- predictorCondition
   return(dataTree)
   
-}
+}#End function splitNode()
 
-#treeGrowBuild FUNCTION
-#INPUT dataMatrix, classColumnNumber, nmin, minleaf,and nfeat
-#FUNCTION after selecting the best predictor in function splitNode we splitting the data matrix based on two classes (left and right) of that predictor and we apply the same procedures recursively to the right subtree and left subtree untill the nodes becomes pure (leaves)
-#OUTPUT   tree as list() which stores predictor labelRoot left subTree and right subTree
 
-treeGrowBuild <- function(dataMatrix, classColumnNumber, nmin, minleaf, nfeat) {
+
+
+#Function :bestSplitNode() 
+#Input (predictorvalues::Vector, classValues:Vector, minleaf::Int) 
+#Output bestNodeToSplit as a list() has NodeImpurity and NodeCondition
+#This calculates the gini-index for each predicor based on the class values 
+#this function will be called for each pair of predictor-vector & class vector 
+bestSplitNode <- function(predictorValue, classValues, minleaf) 
+{
   
-  numberOfColumns <- ncol(dataMatrix)
+  sortedPredictorValue <- sort(unique(predictorValue))
+  NodeImpurity <- NULL
+  NodeCondition <- NULL
   
-  if (numberOfColumns <= nfeat + 1) { #double check 
+  for (index in 1:(length(sortedPredictorValue))) {
     
-    temproryDataMatrix        <- dataMatrix        
-    temproryClassColumnNumber <- classColumnNumber
+    conditionOfNode     <- (sortedPredictorValue[index] + sortedPredictorValue[index + 1]) / 2
+    leftNodeItems       <- classValues[which(predictorValue <= conditionOfNode)]
+    rightNodeItems      <- classValues[which(predictorValue > conditionOfNode)]
+    leftNodeItemsNum    <- length(leftNodeItems)
+    rightNodeItemsNum   <- length(rightNodeItems)
     
-  } else {
-    
-    rnd_columns                <- sample(c(1:numberOfColumns)[-classColumnNumber], size = nfeat, replace = FALSE)
-    temproryDataMatrix         <- dataMatrix[, c(rnd_columns, classColumnNumber), drop = FALSE] 
-    temproryClassColumnNumber  <- nfeat + 1
-    
-  }
-  
-  bestSplit <- splitNode(temproryDataMatrix, temproryClassColumnNumber, nmin, minleaf)
-  
-  if (is.null(bestSplit)) {
-    n_0 <- length(which(dataMatrix[, classColumnNumber] == 0))
-    n_1 <- length(which(dataMatrix[, classColumnNumber] == 1))
-    if (n_0 >= n_1) {
-      return(0)
+    if ((leftNodeItemsNum < minleaf) || (rightNodeItemsNum < minleaf)) {
+      next
     }
-    return(1)
+    
+    # gini index for each child node(impurity) 
+    leftNodeClassOneProbability  <- length(which(leftNodeItems == 0))/leftNodeItemsNum
+    leftNodeClassTwoProbability  <- length(which(leftNodeItems == 1))/leftNodeItemsNum
+    rightNodeClassOneProbability <- length(which(rightNodeItems == 0))/rightNodeItemsNum
+    rightNodeClassTwoProbability <- length(which(rightNodeItems == 1))/rightNodeItemsNum
+    
+    giniLeftNode <-  1-(leftNodeClassOneProbability)^2-(leftNodeClassTwoProbability)^2
+    giniRightNode <-  1-(rightNodeClassOneProbability)^2-(rightNodeClassTwoProbability)^2
+    WeightedGiniNode <- (leftNodeItemsNum * giniLeftNode + rightNodeItemsNum * giniRightNode)/(leftNodeItemsNum+rightNodeItemsNum)
+    
+    if (is.null(NodeImpurity) || (WeightedGiniNode < NodeImpurity)) {
+      NodeImpurity <- WeightedGiniNode
+      NodeCondition <- conditionOfNode
+    }
+    
   }
   
-  bestNodeSelected          <- bestSplit[["predictorLabel"]]
-  bestNodeSelectedCondition <- bestSplit[["predictorCondition"]]
-  rowsFilter                <- which(dataMatrix[, bestNodeSelected] <= bestNodeSelectedCondition)
-  
-  leftDataMatrix            <- dataMatrix[rowsFilter, , drop = FALSE]
-  leftTree                  <- treeGrowBuild(leftDataMatrix, classColumnNumber, nmin, minleaf, nfeat)
-  rightDataMatrix           <- dataMatrix[-rowsFilter, , drop = FALSE]
-  rightTree                 <- treeGrowBuild(rightDataMatrix, classColumnNumber, nmin, minleaf, nfeat)
-  
-  tree                      <- list()
-  tree[["labelRoot"]]       <- bestSplit
-  tree[["leftSubTree"]]     <- leftTree
-  tree[["rightSubTree"]]    <- rightTree
-  
-  return(tree)
-}
-
-#tree.grow FUNCTION
-#INPUT dataPredictors, y, nmin, minleaf,and nfeat
-#FUNCTION bind the values of predictors its class value and calling treeGrowBuild to build the  classification tree
-#OUTPUT   tree 
-
-tree.grow <- function (dataPredictors,y, nmin, minleaf, nfeat){
-  dataMatrix <- cbind(dataPredictors, y)
-  return(treeGrowBuild(dataMatrix, ncol(dataMatrix), nmin, minleaf, nfeat))
-}
-
-#treeClassifyBuild FUNCTION
-#INPUT sample, treeStructure
-#FUNCTION finding the calss value of each predictor based on nodes and it conditions by tracking each nodes based on the predictors value until its reach a node which is pure (node leaf) which has numeric value 
-#OUTPUT   predictors call values  
-
-treeClassifyBuild <- function(sample, treeStructure) {
-  
-  if (class(treeStructure) == "numeric") {
-    return(treeStructure)
+  if (is.null(NodeImpurity)) {
+    return(NULL)
   }
   
-  branchValues       <- treeStructure[["labelRoot"]]
+  bestNodeToSplit <- list()
+  bestNodeToSplit[["NodeImpurity"]] <- NodeImpurity
+  bestNodeToSplit[["NodeCondition"]] <- NodeCondition
+  return(bestNodeToSplit)
+}#End function bestSplitNode()
+
+
+
+
+
+#Function : treeClassifyBuild()
+#Input:  (sample::row of training data, tr::tree object)
+#Output   predictors call values  
+#This function will assign a class to a data row, by evaluating the values of the data row, with the values of nodes conditions starting from the root node, then repeating this process recursively until it reaches a nummeric node, which means it reached the class.  
+treeClassifyBuild <- function(sample, tr) {
+  
+  if (class(tr) == "numeric") {
+    
+    return(tr)
+  }
+  
+  branchValues       <- tr[["labelRoot"]]
   predictorLabel     <- branchValues[["predictorLabel"]]
   predictorCondition <- branchValues[["predictorCondition"]]
   predictorValue     <- sample[ 1, predictorLabel]
-  
-  
+
   
   if (predictorValue <= predictorCondition) {
-    tree <- treeStructure[["leftSubTree"]]
+    tree <- tr[["leftSubTree"]]
   } else {
-    tree <- treeStructure[["rightSubTree"]]
+    tree <- tr[["rightSubTree"]]
   }
   return(treeClassifyBuild(sample, tree))
 }
 
-#tree.grow FUNCTION
-#INPUT testingExamples, treeStructure
-#FUNCTION taking testing examples and calling treeClassifyBuild which returns the predicted class values for each example 
-#OUTPUT   predictionValues 
 
-tree.classify <- function(testingExamples, treeStructure) {
-  
-  predictionValues <- c()
-  
-  for (example in 1:nrow(testingExamples)) {
-    p                <- treeClassifyBuild(testingExamples[example, , drop = FALSE], treeStructure)
-    predictionValues <- c(predictionValues, p)
-  }
-  
-  return(predictionValues)
-}
-
-#tree.grow.bag FUNCTION
-#INPUT x, y, nmin, minleaf, nfeat, m
-#FUNCTION taking training examples and extract some samples randomly, then calling tree.grow function to build a tree from each sample
-#OUTPUT   trees as a list() which saves m trees
-
-tree.grow.bag <- function(x, y, nmin, minleaf, nfeat, m, ...) {
-  
-  trees <- list()
-  
-  for (i in 1:m) {
-    randomData            <- sample(nrow(x), nrow(x), replace = TRUE)
-    interimRandomExamples <- x[randomData, , drop = FALSE]
-    interimClasses        <- y[randomData]
-    trees[[i]]            <- tree.grow(interimRandomExamples, interimClasses, nmin, minleaf, nfeat)
-  }
-  
-  return(trees)
-}
-
-#tree.classify.bag FUNCTION
-#INPUT trees, x
-#FUNCTION applying each row in the training example to each calssification tree in the trees list 
-#OUTPUT   predictions 
-
-tree.classify.bag <- function(trees, x) {
-  predictions <- c()
-  num_trees <- length(trees)
-  
-  for (r in 1:nrow(x)) {
-    row <- x[r, , drop = FALSE]
-    tmp_predictions <- c()
-    for (t in 1:num_trees) {
-      current_tree <- trees[[t]]
-      p <- tree.classify(row, current_tree)
-      tmp_predictions <- c(tmp_predictions, p)
-    }
-    
-    n <- length(which(tmp_predictions == 0))
-    if (n >= (num_trees / 2)) {
-      predictions <- c(predictions, 0)
-    } else {
-      predictions <- c(predictions, 1)
-    }
-  }
-  return(predictions)
-}
 
 
 test_tree <- function(tree){
@@ -308,7 +341,7 @@ test_tree <- function(tree){
   print("False Negative")
   print(FN)
   print("Precision : ")  
-print( precision)
+  print( precision)
   print("Accuracy : ")
   print(  accuracy)
   print("Recall : ")
@@ -406,7 +439,9 @@ mcnemar <- function(classifier1,classifier2 ){
 datam2 <- read.csv("credit data.csv", header = TRUE, sep = ";")
 n<- datam2[,-6]
 m<- datam2[,6]
+##################################Right side is bigger >, left smaller  
 treeclass<- tree.grow(n,m,2,1,5)
+
 tree.classify(n, treeclass)
 
 
@@ -414,11 +449,11 @@ tree.classify(n, treeclass)
 
 #part2
 
-eclipse_training_data <- read.csv("eclipse-metrics-packages-2.0.csv", header = TRUE, sep = ";")
-eclipse_training_data[,4] <- as.numeric(eclipse_training_data[,4] > 0)
-eclipse_training_data[,4] 
-eclipse_trainingN <- eclipse_training_data[, c(3, 5:44)]
-eclipse_trainingM <- eclipse_training_data[, 4]
+ eclipse_training_data <- read.csv("eclipse-metrics-packages-2.0.csv", header = TRUE, sep = ";")
+ eclipse_training_data[,4] <- as.numeric(eclipse_training_data[,4] > 0)
+ eclipse_training_data[,4]
+ eclipse_trainingN <- eclipse_training_data[, c(3, 5:44)]
+ eclipse_trainingM <- eclipse_training_data[, 4]
 
 
 
